@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オセロ生成機 v1.0.7</title>
+    <title>オセロ生成機 v1.0.8</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -138,12 +138,41 @@
     border-radius: 5px;
     background-color: #f9f9f9;
 }
+.depth-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .depth-button:hover {
+        background-color: #0056b3;
+    }
+
+    .depth-button.active {
+        background-color: #0056b3;
+        color: #fff;
+    }
+    #advice-depth-container {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        background-color: #f9f9f9;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
     </style>
 </head>
 <body>
     <div id="sidebar">
         <div>
-            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.0.7</h1>
+            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.0.8</h1>
             <button data-size="6" onclick="switchBoard(6)">6x6</button>
             <button data-size="8" onclick="switchBoard(8)" class="active">8x8</button>
             <button data-size="10" onclick="switchBoard(10)">10x10</button>
@@ -152,10 +181,9 @@
         <div style="margin-top: 20px;">
             <button onclick="showInstructionsModal()">使い方</button>
             <button onclick="showReleaseNotesModal()" style="margin-top: 10px;">リリースノート</button>
-            <!-- 新しいボタンを追加 -->
-        <button onclick="downloadOfflineVersion()" style="margin-top: 10px;">オフライン版を<br>ダウンロード</button>
+            <button onclick="downloadOfflineVersion()" style="margin-top: 10px;">オフライン版を<br>ダウンロード</button>
+        </div>
     </div>
-</div>
     <div id="main-content">
         <textarea id="入力" name="入力" rows="8" placeholder="ここに入力してください..."></textarea><br><br>
         <button onclick="updateBoard()">読み込み</button>
@@ -170,16 +198,7 @@
     </div>
     <div id="modal-overlay"></div>
 <div id="download-modal">
-    <p>オフライン版、または旧バージョンをダウンロードするには以下のリンクをクリックしてください。</p>
-    <a href="オセロ_v1.0.7.zip" download>オセロ v1.0.7</a><br>
-    <a href="オセロ_v1.0.6.zip" download>オセロ v1.0.6</a><br>
-    <a href="オセロ_v1.0.5.zip" download>オセロ v1.0.5</a><br>
-    <a href="オセロ_v1.0.4.zip" download>オセロ v1.0.4</a><br>
-    <a href="オセロ_v1.0.3.zip" download>オセロ v1.0.3</a><br>
-    <a href="オセロ_v1.0.2.zip" download>オセロ v1.0.2</a><br>
-    <a href="オセロ_v1.0.1.zip" download>オセロ v1.0.1</a><br>
-    <a href="オセロ_v1.0.0.zip" download>オセロ v1.0.0</a><br>
-    <p>※うまくダウンロードできない確率が110%くらいあります。</p>
+    <p>ダウンロードに不具合が多発したため一時的にダウンロードできなくしています。</p>
     <button onclick="closeModal()">閉じる</button>
 </div>
 
@@ -198,6 +217,8 @@
         9. 「初期配置を配置」ボタンで盤に初期配置を配置します。<br>
         10. 「オフライン版をダウンロード」ボタンでオフライン版をダウンロードできます。<br>
         11. 「リリースノート」ボタンで最新のリリースノートを表示します。<br>
+        12. 「アドバイス」ボタンで現在の盤面に対するアドバイスを表示します。<br>
+        13. 読むターン数を選択することで、アドバイスの深さを調整できます。<br>
     </p>
     <button onclick="closeInstructionsModal()">閉じる</button>
 </div>
@@ -211,10 +232,22 @@
     <h3>アドバイス</h3>
     <p id="advice-message">ここにアドバイスが表示されます。</p>
 </div>
+<!-- 読むターン数選択 UI -->
+<div id="advice-depth-container" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background-color: #f9f9f9; padding: 10px; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
+    <p style="font-size: 1em; color: #333;">読むターン数を選択してください:</p>
+    <div style="display: flex; justify-content: center; gap: 10px;">
+        <button onclick="setAdviceDepth(1)" class="depth-button">1ターン</button>
+        <button onclick="setAdviceDepth(2)" class="depth-button active">2ターン</button>
+        <button onclick="setAdviceDepth(3)" class="depth-button">3ターン</button>
+        <button onclick="setAdviceDepth(4)" class="depth-button">4ターン</button>
+        <button onclick="setAdviceDepth(Infinity)" class="depth-button">すべて</button>
+    </div>
+</div>
     <script>
         let states = [];
         let boardSize = 8;
         let lastChangedIndex = null;
+        let currentAdviceDepth = 2; // 現在の読むターン数を保持する変数
 
         function switchBoard(size) {
             boardSize = size;
@@ -502,16 +535,16 @@ function closeReleaseNotesModal() {
 }
 // ...existing code...
 
-function getAdvice() {
-    const blackAdvice = findBestMove(2); // 黒のアドバイス
-    const whiteAdvice = findBestMove(3); // 白のアドバイス
+function getAdvice(depth = currentAdviceDepth) {
+    const blackAdvice = findBestMoveWithDepth(2, depth); // 黒のアドバイス
+    const whiteAdvice = findBestMoveWithDepth(3, depth); // 白のアドバイス
 
-    let adviceMessage = '';
+    let adviceMessage = depth === Infinity ? 'ターン数: すべて\n\n' : `ターン数: ${depth}\n\n`;
 
     if (blackAdvice) {
         const row = Math.ceil(blackAdvice.index / boardSize); // 上から何行目
         const col = blackAdvice.index % boardSize || boardSize; // 左から何列目
-        adviceMessage += `黒のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${blackAdvice.count})\n`;
+        adviceMessage += `黒のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${blackAdvice.count}, 次のターンの安全度: ${blackAdvice.safety})\n`;
     } else {
         adviceMessage += '黒は置ける場所がありません。\n';
     }
@@ -519,7 +552,7 @@ function getAdvice() {
     if (whiteAdvice) {
         const row = Math.ceil(whiteAdvice.index / boardSize); // 上から何行目
         const col = whiteAdvice.index % boardSize || boardSize; // 左から何列目
-        adviceMessage += `白のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${whiteAdvice.count})\n`;
+        adviceMessage += `白のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${whiteAdvice.count}, 次のターンの安全度: ${whiteAdvice.safety})\n`;
     } else {
         adviceMessage += '白は置ける場所がありません。\n';
     }
@@ -574,8 +607,211 @@ function findBestMove(player) {
 
     return bestMove.index ? bestMove : null; // 有効な手がない場合は null を返す
 }
+function findBestMoveWithStrategy(player) {
+    const opponent = player === 2 ? 3 : 2;
+    const directions = [
+        -1, 1, -boardSize, boardSize,
+        -boardSize - 1, -boardSize + 1, boardSize - 1, boardSize + 1
+    ];
 
-// ...existing code...
+    let bestMove = { index: null, count: 0, safety: 0 };
+
+    for (let i = 0; i < states.length; i++) {
+        if (states[i] !== 1) continue; // 空のマスのみチェック
+
+        let totalFlipped = 0;
+        let safetyScore = 0;
+
+        for (const direction of directions) {
+            let tempFlipped = [];
+            let currentIndex = i + direction;
+
+            while (
+                currentIndex >= 0 &&
+                currentIndex < states.length &&
+                isValidDirection(i + 1, currentIndex + 1, direction) &&
+                states[currentIndex] === opponent
+            ) {
+                tempFlipped.push(currentIndex);
+                currentIndex += direction;
+            }
+
+            if (
+                tempFlipped.length > 0 &&
+                currentIndex >= 0 &&
+                currentIndex < states.length &&
+                states[currentIndex] === player
+            ) {
+                totalFlipped += tempFlipped.length;
+
+                // 次のターンで相手がひっくり返せる可能性を評価
+                safetyScore += evaluateSafety(i, player);
+            }
+        }
+
+        if (totalFlipped > bestMove.count || (totalFlipped === bestMove.count && safetyScore > bestMove.safety)) {
+            bestMove = { index: i + 1, count: totalFlipped, safety: safetyScore }; // 1ベースのインデックスを返す
+        }
+    }
+
+    return bestMove.index ? bestMove : null; // 有効な手がない場合は null を返す
+}
+function evaluateSafety(index, player) {
+    const opponent = player === 2 ? 3 : 2;
+    const directions = [
+        -1, 1, -boardSize, boardSize,
+        -boardSize - 1, -boardSize + 1, boardSize - 1, boardSize + 1
+    ];
+
+    let safetyScore = 0;
+
+    for (const direction of directions) {
+        let currentIndex = index + direction;
+
+        while (
+            currentIndex >= 0 &&
+            currentIndex < states.length &&
+            isValidDirection(index + 1, currentIndex + 1, direction) &&
+            states[currentIndex] === opponent
+        ) {
+            currentIndex += direction;
+        }
+
+        if (
+            currentIndex >= 0 &&
+            currentIndex < states.length &&
+            states[currentIndex] === 1 // 空のマスがある場合、相手が次に置ける可能性がある
+        ) {
+            safetyScore -= 1; // 安全度を減少
+        }
+    }
+
+    return safetyScore;
+}
+function findBestMoveWithDepth(player, depth) {
+    const opponent = player === 2 ? 3 : 2;
+    const directions = [
+        -1, 1, -boardSize, boardSize,
+        -boardSize - 1, -boardSize + 1, boardSize - 1, boardSize + 1
+    ];
+
+    let bestMove = { index: null, count: 0, safety: 0 };
+
+    for (let i = 0; i < states.length; i++) {
+        if (states[i] !== 1) continue; // 空のマスのみチェック
+
+        let totalFlipped = 0;
+        let safetyScore = 0;
+
+        for (const direction of directions) {
+            let tempFlipped = [];
+            let currentIndex = i + direction;
+
+            while (
+                currentIndex >= 0 &&
+                currentIndex < states.length &&
+                isValidDirection(i + 1, currentIndex + 1, direction) &&
+                states[currentIndex] === opponent
+            ) {
+                tempFlipped.push(currentIndex);
+                currentIndex += direction;
+            }
+
+            if (
+                tempFlipped.length > 0 &&
+                currentIndex >= 0 &&
+                currentIndex < states.length &&
+                states[currentIndex] === player
+            ) {
+                totalFlipped += tempFlipped.length;
+
+                // 次のターンで相手がひっくり返せる可能性を評価
+                safetyScore += evaluateSafetyWithDepth(i, player, depth === Infinity ? Infinity : depth - 1);
+            }
+        }
+
+        if (totalFlipped > bestMove.count || (totalFlipped === bestMove.count && safetyScore > bestMove.safety)) {
+            bestMove = { index: i + 1, count: totalFlipped, safety: safetyScore }; // 1ベースのインデックスを返す
+        }
+    }
+
+    return bestMove.index ? bestMove : null; // 有効な手がない場合は null を返す
+}
+
+function evaluateSafetyWithDepth(index, player, depth) {
+    if (depth === 0) return evaluateSafety(index, player);
+
+    const opponent = player === 2 ? 3 : 2;
+    const directions = [
+        -1, 1, -boardSize, boardSize,
+        -boardSize - 1, -boardSize + 1, boardSize - 1, boardSize + 1
+    ];
+
+    let safetyScore = 0;
+
+    for (const direction of directions) {
+        let currentIndex = index + direction;
+
+        while (
+            currentIndex >= 0 &&
+            currentIndex < states.length &&
+            isValidDirection(index + 1, currentIndex + 1, direction) &&
+            states[currentIndex] === opponent
+        ) {
+            currentIndex += direction;
+        }
+
+        if (
+            currentIndex >= 0 &&
+            currentIndex < states.length &&
+            states[currentIndex] === 1 // 空のマスがある場合、相手が次に置ける可能性がある
+        ) {
+            safetyScore -= 1; // 安全度を減少
+        }
+    }
+
+    // 再帰的に次のターンを評価
+    const simulatedStates = [...states];
+    simulatedStates[index] = player;
+
+    if (depth === Infinity && isGameOver(simulatedStates)) {
+        return safetyScore; // ゲーム終了時は評価を停止
+    }
+
+    safetyScore += findBestMoveWithDepth(opponent, depth).safety;
+
+    return safetyScore;
+}
+function isGameOver(states) {
+    return !states.includes(1); // 空のマスがない場合、ゲーム終了
+}
+
+
+function updateAdviceDepth() {
+    const selectedDepth = document.querySelector('input[name="advice-depth"]:checked').value;
+    const depth = selectedDepth === 'Infinity' ? Infinity : parseInt(selectedDepth, 10);
+    currentAdviceDepth = depth; // 現在の読むターン数を更新
+    getAdvice(depth);
+}
+
+// ページロード時にターン数選択UIをセットアップ
+document.addEventListener('DOMContentLoaded', () => {
+    setupAdviceDepthSelector();
+    getAdvice(currentAdviceDepth); // デフォルトで現在の読むターン数を使用
+});
+function setAdviceDepth(depth) {
+    currentAdviceDepth = depth; // 現在の読むターン数を更新
+    getAdvice(depth);
+
+    // ボタンの状態を更新
+    const buttons = document.querySelectorAll('.depth-button');
+    buttons.forEach(button => button.classList.remove('active'));
+
+    const activeButton = Array.from(buttons).find(button => button.textContent.includes(depth === Infinity ? 'すべて' : `${depth}ターン`));
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
+}
     </script>
 </body>
 </html>
