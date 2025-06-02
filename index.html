@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オセロ生成機 v1.0.7</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        #sidebar {
+            width: 250px;
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #sidebar button {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #sidebar button:hover {
+            background-color: #0056b3;
+        }
+
+        #sidebar button.active {
+            background-color: #0056b3;
+            color: #fff;
+        }
+
+        #main-content {
+            flex: 1;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #board {
+            display: grid;
+            justify-content: center;
+            margin: 20px auto;
+        }
+
+        input[type="image"] {
+            border: none;
+            margin: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        textarea {
+            width: 100%;
+            font-size: 1em;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            font-size: 1em;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #download-modal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border-radius: 5px;
+        z-index: 1000;
+    }
+
+    #download-modal a {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: bold;
+    }
+
+    #download-modal a:hover {
+        text-decoration: underline;
+    }
+
+    #modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* 背景を暗くする */
+    z-index: 999;
+}
+#advice-message {
+    white-space: pre-wrap; /* 改行を維持しつつ自動で折り返し */
+    word-wrap: break-word; /* 長い単語を折り返し */
+    font-size: 1em; /* 適切なフォントサイズ */
+    line-height: 1.5; /* 行間を調整 */
+}
+#advice-container {
+    width: 300px; /* 固定幅 */
+    margin-top: 20px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <div>
+            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.0.7</h1>
+            <button data-size="6" onclick="switchBoard(6)">6x6</button>
+            <button data-size="8" onclick="switchBoard(8)" class="active">8x8</button>
+            <button data-size="10" onclick="switchBoard(10)">10x10</button>
+            <button data-size="12" onclick="switchBoard(12)">12x12</button>
+        </div>
+        <div style="margin-top: 20px;">
+            <button onclick="showInstructionsModal()">使い方</button>
+            <button onclick="showReleaseNotesModal()" style="margin-top: 10px;">リリースノート</button>
+            <!-- 新しいボタンを追加 -->
+        <button onclick="downloadOfflineVersion()" style="margin-top: 10px;">オフライン版を<br>ダウンロード</button>
+    </div>
+</div>
+    <div id="main-content">
+        <textarea id="入力" name="入力" rows="8" placeholder="ここに入力してください..."></textarea><br><br>
+        <button onclick="updateBoard()">読み込み</button>
+        <button onclick="exportBoard()">書き出す</button>
+        <button onclick="resetBoard()">リセット</button>
+        <button onclick="copyToClipboard()">コピー</button>
+        <button onclick="pasteFromClipboard()">貼り付け</button>
+        <button onclick="flipLastChanged()">ひっくり返す</button>
+        <button onclick="placeInitialStones()">初期配置を配置</button>
+        <button onclick="getAdvice()">アドバイス</button>
+        <div id="board"></div>
+    </div>
+    <div id="modal-overlay"></div>
+<div id="download-modal">
+    <p>オフライン版、または旧バージョンをダウンロードするには以下のリンクをクリックしてください。</p>
+    <a href="オセロ_v1.0.7.zip" download>オセロ v1.0.7</a><br>
+    <a href="オセロ_v1.0.6.zip" download>オセロ v1.0.6</a><br>
+    <a href="オセロ_v1.0.5.zip" download>オセロ v1.0.5</a><br>
+    <a href="オセロ_v1.0.4.zip" download>オセロ v1.0.4</a><br>
+    <a href="オセロ_v1.0.3.zip" download>オセロ v1.0.3</a><br>
+    <a href="オセロ_v1.0.2.zip" download>オセロ v1.0.2</a><br>
+    <a href="オセロ_v1.0.1.zip" download>オセロ v1.0.1</a><br>
+    <a href="オセロ_v1.0.0.zip" download>オセロ v1.0.0</a><br>
+    <p>※うまくダウンロードできない確率が110%くらいあります。</p>
+    <button onclick="closeModal()">閉じる</button>
+</div>
+
+<div id="instructions-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000;">
+    <h2>使い方</h2>
+    <p>
+        【使い方】<br>
+        1. 左のサイドバーから盤のサイズを選択してください。<br>
+        2. 入力欄にSlackのオセロをコピーしたものを貼り付け、「読み込み」ボタンを押すと盤面が更新されます。<br>
+        3. 真ん中にあるオセロ盤をクリックすることで色が変わります。<br>
+        4. 「書き出す」ボタンで現在の盤面データを入力欄に出力できます。<br>
+        5. 「リセット」ボタンで盤面を初期状態に戻します。<br>
+        6. 「コピー」ボタンで入力欄の内容をクリップボードにコピーします。<br>
+        7. 「貼り付け」ボタンでクリップボードの内容を入力欄に貼り付けます。<br>
+        8. 「ひっくり返す」ボタンで最後に変更したマスを基点にひっくり返し処理を実行します。<br>
+        9. 「初期配置を配置」ボタンで盤に初期配置を配置します。<br>
+        10. 「オフライン版をダウンロード」ボタンでオフライン版をダウンロードできます。<br>
+        11. 「リリースノート」ボタンで最新のリリースノートを表示します。<br>
+    </p>
+    <button onclick="closeInstructionsModal()">閉じる</button>
+</div>
+
+<div id="release-notes-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000;">
+    <h2>リリースノート</h2>
+    <p>リリースノート書くのめんどいからなくても良いよね</p>
+    <button onclick="closeReleaseNotesModal()">閉じる</button>
+</div>
+<div id="advice-container" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9;">
+    <h3>アドバイス</h3>
+    <p id="advice-message">ここにアドバイスが表示されます。</p>
+</div>
+    <script>
+        let states = [];
+        let boardSize = 8;
+        let lastChangedIndex = null;
+
+        function switchBoard(size) {
+            boardSize = size;
+            generateBoard();
+
+            const buttons = document.querySelectorAll('#sidebar button');
+            buttons.forEach(button => button.classList.remove('active'));
+
+            const activeButton = document.querySelector(`#sidebar button[data-size="${size}"]`);
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+        }
+
+        function generateBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            board.style.gridTemplateColumns = `repeat(${boardSize}, 44px)`;
+            states = Array(boardSize * boardSize).fill(1);
+
+            for (let i = 1; i <= boardSize * boardSize; i++) {
+                let src = 'オセロ板.png';
+                board.innerHTML += `<input type="image" src="${src}" alt="マス" onclick="toggle(${i})" width="44" height="44" id="b${i}">`;
+            }
+        }
+
+        function placeInitialStones() {
+    if (boardSize === 8) {
+        const blackPosition1 = (4 - 1) * boardSize + 4;
+        states[blackPosition1 - 1] = 2;
+
+        const blackPosition2 = (5 - 1) * boardSize + 5;
+        states[blackPosition2 - 1] = 2;
+
+        const whitePosition1 = (4 - 1) * boardSize + 5;
+        states[whitePosition1 - 1] = 3;
+
+        const whitePosition2 = (5 - 1) * boardSize + 4;
+        states[whitePosition2 - 1] = 3;
+
+        updateBoardUI();
+    } else if (boardSize === 6) {
+        const blackPosition = (3 - 1) * boardSize + 3;
+        states[blackPosition - 1] = 2;
+
+        const whitePosition = blackPosition + boardSize;
+        states[whitePosition - 1] = 3;
+
+        const blackPositionRight = whitePosition + 1;
+        states[blackPositionRight - 1] = 2;
+
+        const whitePositionAbove = blackPositionRight - boardSize;
+        states[whitePositionAbove - 1] = 3;
+
+        updateBoardUI();
+    } else if (boardSize === 10) {
+        const blackPosition = (5 - 1) * boardSize + 5;
+        states[blackPosition - 1] = 2;
+
+        const whitePosition = blackPosition + boardSize;
+        states[whitePosition - 1] = 3;
+
+        const blackPositionRight = whitePosition + 1;
+        states[blackPositionRight - 1] = 2;
+
+        const whitePositionAbove = blackPositionRight - boardSize;
+        states[whitePositionAbove - 1] = 3;
+
+        updateBoardUI();
+    } else if (boardSize === 12) {
+        // 左から6列目、上から6行目を黒に設定
+        const blackPosition = (6 - 1) * boardSize + 6;
+        states[blackPosition - 1] = 2;
+
+        // 黒の1つ下（左から6列目、上から7行目）を白に設定
+        const whitePosition = blackPosition + boardSize;
+        states[whitePosition - 1] = 3;
+
+        // 白の右（左から7列目、上から7行目）を黒に設定
+        const blackPositionRight = whitePosition + 1;
+        states[blackPositionRight - 1] = 2;
+
+        // 黒の上（左から7列目、上から6行目）を白に設定
+        const whitePositionAbove = blackPositionRight - boardSize;
+        states[whitePositionAbove - 1] = 3;
+
+        updateBoardUI();
+    }
+}
+
+        function updateBoardUI() {
+            for (let i = 1; i <= boardSize * boardSize; i++) {
+                const button = document.querySelector(`#b${i}`);
+                const state = states[i - 1];
+                if (state === 1) {
+                    button.src = 'オセロ板.png';
+                } else if (state === 2) {
+                    button.src = 'オセロ_黒.png';
+                } else if (state === 3) {
+                    button.src = 'オセロ_白.png';
+                }
+            }
+        }
+
+        function toggle(index) {
+            const button = document.querySelector(`#b${index}`);
+            if (states[index - 1] === 1) {
+                states[index - 1] = 2;
+                button.src = 'オセロ_黒.png';
+            } else if (states[index - 1] === 2) {
+                states[index - 1] = 3;
+                button.src = 'オセロ_白.png';
+            } else if (states[index - 1] === 3) {
+                states[index - 1] = 1;
+                button.src = 'オセロ板.png';
+            }
+            lastChangedIndex = index - 1;
+        }
+
+        function flipLastChanged() {
+            if (lastChangedIndex === null) {
+                alert("最後に変更されたマスがありません。");
+                return;
+            }
+
+            const currentColor = states[lastChangedIndex];
+            if (currentColor === 1) {
+                alert("最後に変更されたマスが空の状態です。");
+                return;
+            }
+
+            const flipped = flipStones(lastChangedIndex, currentColor);
+            if (flipped.length > 0) {
+                updateBoardUI();
+            } else {
+                alert("ひっくり返せる場所がありません。");
+            }
+        }
+
+        function flipStones(index, player) {
+            const directions = [
+                -1, 1, -boardSize, boardSize,
+                -boardSize - 1, -boardSize + 1, boardSize - 1, boardSize + 1
+            ];
+            const opponent = player === 2 ? 3 : 2;
+            let flipped = [];
+
+            for (const direction of directions) {
+                let tempFlipped = [];
+                let currentIndex = index + direction;
+
+                while (
+                    currentIndex > 0 &&
+                    currentIndex <= boardSize * boardSize &&
+                    isValidDirection(index, currentIndex, direction) &&
+                    states[currentIndex] === opponent
+                ) {
+                    tempFlipped.push(currentIndex);
+                    currentIndex += direction;
+                }
+
+                if (
+                    currentIndex > 0 &&
+                    currentIndex <= boardSize * boardSize &&
+                    isValidDirection(index, currentIndex, direction) &&
+                    states[currentIndex] === player
+                ) {
+                    flipped = flipped.concat(tempFlipped);
+                }
+            }
+
+            flipped.forEach(i => (states[i] = player));
+            return flipped;
+        }
+
+        function isValidDirection(start, end, direction) {
+            if (direction === -1 || direction === 1) {
+                return Math.floor((start - 1) / boardSize) === Math.floor((end - 1) / boardSize);
+            }
+            return true;
+        }
+
+        function updateBoard() {
+    const input = document.getElementById('入力').value;
+    const normalizedInput = input.replace(/\s+/g, '');
+    const values = normalizedInput.split(/:(?=オセロ_黒|オセロ_白|large_green_square|緑の四角特大:)/).filter(v => v);
+
+    for (let i = 1; i <= boardSize * boardSize; i++) {
+        const button = document.querySelector(`#b${i}`);
+        const value = values[i - 1]?.replace(/:/g, '');
+        if (value === 'オセロ_黒') {
+            button.src = 'オセロ_黒.png';
+            states[i - 1] = 2;
+        } else if (value === 'オセロ_白') {
+            button.src = 'オセロ_白.png';
+            states[i - 1] = 3;
+        } else if (value === 'large_green_square' || value === '緑の四角特大') {
+            button.src = 'オセロ板.png';
+            states[i - 1] = 1;
+        }
+    }
+}
+
+        function exportBoard() {
+            let output = '';
+            for (let i = 1; i <= boardSize * boardSize; i++) {
+                if (states[i - 1] === 2) {
+                    output += ':オセロ_黒:';
+                } else if (states[i - 1] === 3) {
+                    output += ':オセロ_白:';
+                } else {
+                    output += ':large_green_square:';
+                }
+                if (i % boardSize === 0) output += '\n';
+            }
+            document.getElementById('入力').value = output.trim();
+        }
+
+        function resetBoard() {
+            document.getElementById('入力').value = '';
+            generateBoard();
+        }
+
+        function copyToClipboard() {
+            const input = document.getElementById('入力');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value).catch(err => {
+                console.error('コピーに失敗しました: ', err);
+            });
+        }
+
+        function pasteFromClipboard() {
+            navigator.clipboard.readText().then(text => {
+                document.getElementById('入力').value = text;
+            }).catch(err => {
+                console.error('クリップボードからの貼り付けに失敗しました: ', err);
+            });
+        }
+
+
+
+
+        generateBoard();
+
+        function downloadOfflineVersion() {
+        const modal = document.getElementById('download-modal');
+        const overlay = document.getElementById('modal-overlay');
+        modal.style.display = 'block';
+        overlay.style.display = 'block';
+    }
+
+    function closeModal() {
+        const modal = document.getElementById('download-modal');
+        const overlay = document.getElementById('modal-overlay');
+        modal.style.display = 'none';
+        overlay.style.display = 'none';
+    }
+    function showInstructionsModal() {
+    const modal = document.getElementById('instructions-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'block'; // モーダルを表示
+    overlay.style.display = 'block'; // 背景を暗くする
+}
+
+function closeInstructionsModal() {
+    const modal = document.getElementById('instructions-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'none'; // モーダルを非表示
+    overlay.style.display = 'none'; // 背景を元に戻す
+}
+
+function showReleaseNotesModal() {
+    const modal = document.getElementById('release-notes-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+function closeReleaseNotesModal() {
+    const modal = document.getElementById('release-notes-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'none';
+    overlay.style.display = 'none';
+}
+// ...existing code...
+
+function getAdvice() {
+    const blackAdvice = findBestMove(2); // 黒のアドバイス
+    const whiteAdvice = findBestMove(3); // 白のアドバイス
+
+    let adviceMessage = '';
+
+    if (blackAdvice) {
+        const row = Math.ceil(blackAdvice.index / boardSize); // 上から何行目
+        const col = blackAdvice.index % boardSize || boardSize; // 左から何列目
+        adviceMessage += `黒のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${blackAdvice.count})\n`;
+    } else {
+        adviceMessage += '黒は置ける場所がありません。\n';
+    }
+
+    if (whiteAdvice) {
+        const row = Math.ceil(whiteAdvice.index / boardSize); // 上から何行目
+        const col = whiteAdvice.index % boardSize || boardSize; // 左から何列目
+        adviceMessage += `白のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${whiteAdvice.count})\n`;
+    } else {
+        adviceMessage += '白は置ける場所がありません。\n';
+    }
+
+    // アドバイスを専用の場所に表示
+    const adviceContainer = document.getElementById('advice-message');
+    adviceContainer.textContent = adviceMessage.trim();
+}
+
+function findBestMove(player) {
+    const opponent = player === 2 ? 3 : 2;
+    const directions = [
+        -1, 1, -boardSize, boardSize,
+        -boardSize - 1, -boardSize + 1, boardSize - 1, boardSize + 1
+    ];
+
+    let bestMove = { index: null, count: 0 };
+
+    for (let i = 0; i < states.length; i++) {
+        if (states[i] !== 1) continue; // 空のマスのみチェック
+
+        let totalFlipped = 0;
+
+        for (const direction of directions) {
+            let tempFlipped = [];
+            let currentIndex = i + direction;
+
+            while (
+                currentIndex >= 0 &&
+                currentIndex < states.length &&
+                isValidDirection(i + 1, currentIndex + 1, direction) &&
+                states[currentIndex] === opponent
+            ) {
+                tempFlipped.push(currentIndex);
+                currentIndex += direction;
+            }
+
+            if (
+                tempFlipped.length > 0 &&
+                currentIndex >= 0 &&
+                currentIndex < states.length &&
+                states[currentIndex] === player
+            ) {
+                totalFlipped += tempFlipped.length;
+            }
+        }
+
+        if (totalFlipped > bestMove.count) {
+            bestMove = { index: i + 1, count: totalFlipped }; // 1ベースのインデックスを返す
+        }
+    }
+
+    return bestMove.index ? bestMove : null; // 有効な手がない場合は null を返す
+}
+
+// ...existing code...
+    </script>
+</body>
+</html>
