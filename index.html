@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オセロ生成機 v1.0.8</title>
+    <title>オセロ生成機 v1.0.9</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -43,9 +43,11 @@
         }
 
         #sidebar button.active {
-            background-color: #0056b3;
-            color: #fff;
-        }
+        background-color: #0056b3;
+        color: #fff;
+        transform: scale(1.1); /* ボタンを少し拡大 */
+        transition: transform 0.3s ease, background-color 0.3s ease;
+    }
 
         #main-content {
             flex: 1;
@@ -76,20 +78,21 @@
         }
 
         button {
-            font-size: 1em;
-            padding: 10px 20px;
-            margin: 5px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-            transition: background-color 0.3s ease;
-        }
+        font-size: 1em;
+        padding: 10px 20px;
+        margin: 5px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
 
-        button:hover {
-            background-color: #0056b3;
-        }
+    button:hover {
+        background-color: #0056b3;
+        transform: scale(1.05); /* 少し拡大 */
+    }
 
         #download-modal {
         display: none;
@@ -137,6 +140,7 @@
     border: 1px solid #ccc;
     border-radius: 5px;
     background-color: #f9f9f9;
+    flex-direction: column; /* 縦方向に並べる */
 }
 .depth-button {
         padding: 10px 20px;
@@ -163,16 +167,68 @@
         transform: translateX(-50%);
         text-align: center;
         background-color: #f9f9f9;
-        padding: 10px;
+        padding: 5px; /* パディングを小さく */
         border-radius: 5px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        font-size: 0.9em; /* フォントサイズを小さく */
+    }
+     /* ボタンのクリック時のアニメーション */
+     .depth-button.active {
+        background-color: #0056b3;
+        color: #fff;
+        transform: scale(1.1); /* ボタンを少し拡大 */
+        transition: transform 0.3s ease, background-color 0.3s ease;
+    }
+
+    /* アドバイスメッセージのフェードイン効果 */
+    #advice-message {
+        opacity: 0; /* 初期状態は透明 */
+        transition: opacity 0.5s ease; /* フェードイン効果 */
+    }
+
+    #advice-message.visible {
+        opacity: 1; /* 表示状態 */
+    }
+    button:active {
+        transform: scale(0.95); /* 少し縮小 */
+    }
+    #loading-indicator img {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    #advice-depth-container p {
+        font-size: 0.8em; /* 説明文のフォントサイズを小さく */
+        color: #333;
+        margin: 5px 0; /* マージンを調整 */
+    }
+    #advice-depth-container button {
+        padding: 5px 10px; /* ボタンのサイズを小さく */
+        font-size: 0.8em; /* ボタンのフォントサイズを小さく */
+        border-radius: 3px; /* ボタンの角を少し丸く */
+    }
+
+    #advice-depth-container button:hover {
+        background-color: #0056b3;
+    }
+
+    #advice-depth-container button.active {
+        background-color: #0056b3;
+        color: #fff;
     }
     </style>
 </head>
 <body>
     <div id="sidebar">
         <div>
-            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.0.8</h1>
+            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.0.9</h1>
             <button data-size="6" onclick="switchBoard(6)">6x6</button>
             <button data-size="8" onclick="switchBoard(8)" class="active">8x8</button>
             <button data-size="10" onclick="switchBoard(10)">10x10</button>
@@ -219,6 +275,7 @@
         11. 「リリースノート」ボタンで最新のリリースノートを表示します。<br>
         12. 「アドバイス」ボタンで現在の盤面に対するアドバイスを表示します。<br>
         13. 読むターン数を選択することで、アドバイスの深さを調整できます。<br>
+        14. アドバイスは、黒と白の両方に対して最適な手を提案します。<br>
     </p>
     <button onclick="closeInstructionsModal()">閉じる</button>
 </div>
@@ -228,20 +285,31 @@
     <p>リリースノート書くのめんどいからなくても良いよね</p>
     <button onclick="closeReleaseNotesModal()">閉じる</button>
 </div>
-<div id="advice-container" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9;">
-    <h3>アドバイス</h3>
-    <p id="advice-message">ここにアドバイスが表示されます。</p>
+<div id="advice-container" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9; display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <h3>アドバイス</h3>
+        <div id="loading-indicator" style="display: none;">
+            <img src="loading.gif" alt="Loading" width="24" height="24">
+        </div>
+    </div>
+    <p id="advice-message" style="flex: 1;">ここにアドバイスが表示されます。</p>
 </div>
 <!-- 読むターン数選択 UI -->
 <div id="advice-depth-container" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background-color: #f9f9f9; padding: 10px; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
-    <p style="font-size: 1em; color: #333;">読むターン数を選択してください:</p>
-    <div style="display: flex; justify-content: center; gap: 10px;">
+    <p style="font-size: 1em; color: #333;">読むターン数を選択してください</p>
+    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
         <button onclick="setAdviceDepth(1)" class="depth-button">1ターン</button>
         <button onclick="setAdviceDepth(2)" class="depth-button active">2ターン</button>
         <button onclick="setAdviceDepth(3)" class="depth-button">3ターン</button>
         <button onclick="setAdviceDepth(4)" class="depth-button">4ターン</button>
-        <button onclick="setAdviceDepth(Infinity)" class="depth-button">すべて</button>
+        <button onclick="setAdviceDepth(5)" class="depth-button">5ターン</button>
+        <button onclick="setAdviceDepth(6)" class="depth-button">6ターン</button>
+        <button onclick="setAdviceDepth(7)" class="depth-button">7ターン</button>
+        <button onclick="setAdviceDepth(8)" class="depth-button">8ターン</button>
+        <button onclick="setAdviceDepth(9)" class="depth-button">9ターン</button>
+        <button onclick="setAdviceDepth(10)" class="depth-button">10ターン</button>
     </div>
+</div>
 </div>
     <script>
         let states = [];
@@ -449,6 +517,9 @@
             states[i - 1] = 1;
         }
     }
+
+    // 読むターン数をリセットせずに保持
+    getAdvice(currentAdviceDepth);
 }
 
         function exportBoard() {
@@ -536,32 +607,51 @@ function closeReleaseNotesModal() {
 // ...existing code...
 
 function getAdvice(depth = currentAdviceDepth) {
-    const blackAdvice = findBestMoveWithDepth(2, depth); // 黒のアドバイス
-    const whiteAdvice = findBestMoveWithDepth(3, depth); // 白のアドバイス
-
-    let adviceMessage = depth === Infinity ? 'ターン数: すべて\n\n' : `ターン数: ${depth}\n\n`;
-
-    if (blackAdvice) {
-        const row = Math.ceil(blackAdvice.index / boardSize); // 上から何行目
-        const col = blackAdvice.index % boardSize || boardSize; // 左から何列目
-        adviceMessage += `黒のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${blackAdvice.count}, 次のターンの安全度: ${blackAdvice.safety})\n`;
-    } else {
-        adviceMessage += '黒は置ける場所がありません。\n';
+    if (!depth) {
+        console.error("読むターン数が未定義です。");
+        return;
     }
 
-    if (whiteAdvice) {
-        const row = Math.ceil(whiteAdvice.index / boardSize); // 上から何行目
-        const col = whiteAdvice.index % boardSize || boardSize; // 左から何列目
-        adviceMessage += `白のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${whiteAdvice.count}, 次のターンの安全度: ${whiteAdvice.safety})\n`;
-    } else {
-        adviceMessage += '白は置ける場所がありません。\n';
-    }
+    // ローディングインジケーターを表示
+    const loadingIndicator = document.getElementById('loading-indicator');
+    loadingIndicator.style.display = 'block';
 
-    // アドバイスを専用の場所に表示
-    const adviceContainer = document.getElementById('advice-message');
-    adviceContainer.textContent = adviceMessage.trim();
+    setTimeout(() => {
+        const blackAdvice = findBestMoveWithDepth(2, depth); // 黒のアドバイス
+        const whiteAdvice = findBestMoveWithDepth(3, depth); // 白のアドバイス
+
+        let adviceMessage = depth === Infinity ? 'ターン数: すべて\n\n' : `ターン数: ${depth}\n\n`;
+
+        if (blackAdvice) {
+            const row = Math.ceil(blackAdvice.index / boardSize); // 上から何行目
+            const col = blackAdvice.index % boardSize || boardSize; // 左から何列目
+            adviceMessage += `黒のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${blackAdvice.count}, 次のターンの安全度: ${blackAdvice.safety})\n`;
+        } else {
+            adviceMessage += '黒は置ける場所がありません。\n';
+        }
+
+        if (whiteAdvice) {
+            const row = Math.ceil(whiteAdvice.index / boardSize); // 上から何行目
+            const col = whiteAdvice.index % boardSize || boardSize; // 左から何列目
+            adviceMessage += `白のおすすめの場所: 上から${row}マス目、左から${col}マス目 (ひっくり返せる数: ${whiteAdvice.count}, 次のターンの安全度: ${whiteAdvice.safety})\n`;
+        } else {
+            adviceMessage += '白は置ける場所がありません。\n';
+        }
+
+        // アドバイスを専用の場所に表示
+        const adviceContainer = document.getElementById('advice-message');
+        adviceContainer.textContent = adviceMessage.trim();
+
+        // フェードイン効果を適用
+        adviceContainer.classList.remove('visible');
+        setTimeout(() => {
+            adviceContainer.classList.add('visible');
+        }, 100); // 少し遅れてフェードイン
+
+        // ローディングインジケーターを非表示
+        loadingIndicator.style.display = 'none';
+    }, 100); // 計算時間をシミュレーション
 }
-
 function findBestMove(player) {
     const opponent = player === 2 ? 3 : 2;
     const directions = [
@@ -800,17 +890,18 @@ document.addEventListener('DOMContentLoaded', () => {
     getAdvice(currentAdviceDepth); // デフォルトで現在の読むターン数を使用
 });
 function setAdviceDepth(depth) {
-    currentAdviceDepth = depth; // 現在の読むターン数を更新
+    console.log(`選択されたターン数: ${depth}`); // デバッグ用ログ
+    currentAdviceDepth = depth;
     getAdvice(depth);
 
-    // ボタンの状態を更新
     const buttons = document.querySelectorAll('.depth-button');
-    buttons.forEach(button => button.classList.remove('active'));
-
-    const activeButton = Array.from(buttons).find(button => button.textContent.includes(depth === Infinity ? 'すべて' : `${depth}ターン`));
-    if (activeButton) {
-        activeButton.classList.add('active');
-    }
+    buttons.forEach(button => {
+        button.classList.remove('active');
+        const buttonDepth = button.textContent.includes('すべて') ? Infinity : parseInt(button.textContent.replace('ターン', ''), 10);
+        if (buttonDepth === depth) {
+            button.classList.add('active');
+        }
+    });
 }
     </script>
 </body>
