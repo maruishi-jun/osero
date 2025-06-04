@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オセロ生成機 v1.0.9</title>
+    <title>オセロ生成機 v1.1.0</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -228,13 +229,16 @@
 <body>
     <div id="sidebar">
         <div>
-            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.0.9</h1>
+            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.1.0</h1>
             <button data-size="6" onclick="switchBoard(6)">6x6</button>
             <button data-size="8" onclick="switchBoard(8)" class="active">8x8</button>
             <button data-size="10" onclick="switchBoard(10)">10x10</button>
             <button data-size="12" onclick="switchBoard(12)">12x12</button>
         </div>
         <div style="margin-top: 20px;">
+            <button onclick="startNewMatch()">新しいマッチを作成</button>
+            <button onclick="endMatch()">マッチを終了</button>
+            <button onclick="showMatchHistory()">履歴を見る</button>
             <button onclick="showInstructionsModal()">使い方</button>
             <button onclick="showReleaseNotesModal()" style="margin-top: 10px;">リリースノート</button>
             <button onclick="downloadOfflineVersion()" style="margin-top: 10px;">オフライン版を<br>ダウンロード</button>
@@ -276,6 +280,14 @@
         12. 「アドバイス」ボタンで現在の盤面に対するアドバイスを表示します。<br>
         13. 読むターン数を選択することで、アドバイスの深さを調整できます。<br>
         14. アドバイスは、黒と白の両方に対して最適な手を提案します。<br>
+        15. アドバイスは盤面の状態に基づいて計算され、ひっくり返せる数や次のターンの安全度を考慮します。<br>
+        16. 「マッチを終了」ボタンで現在のマッチを終了し、履歴に保存します。<br>
+        17. 「履歴を見る」ボタンで過去のマッチ履歴を表示します。<br>
+        18. 「新しいマッチを作成」ボタンで新しいマッチを開始します。<br>
+        19. マッチ履歴は、各マッチの開始時間、終了時間、盤面の状態、アドバイスの履歴を含みます。<br>
+        20. マッチ履歴は、マッチ終了後に自動的に保存されます。<br>
+        21. アドバイスは盤面が大きいと計算に時間がかかったり応答がなくなる場合があります。<br>
+        22. マッチを作成、終了はベータ版のためバグが多い可能性しかありません。<br>
     </p>
     <button onclick="closeInstructionsModal()">閉じる</button>
 </div>
@@ -311,11 +323,18 @@
     </div>
 </div>
 </div>
+<div id="match-history-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000; max-height: 80%; overflow-y: auto;">
+    <h2>マッチ履歴</h2>
+    <div id="match-history-content"></div>
+    <button onclick="closeMatchHistory()">閉じる</button>
+</div>
     <script>
         let states = [];
         let boardSize = 8;
         let lastChangedIndex = null;
         let currentAdviceDepth = 2; // 現在の読むターン数を保持する変数
+        let matchHistory = []; // マッチの履歴を保存
+        let currentMatch = null; // 現在のマッチ情報
 
         function switchBoard(size) {
             boardSize = size;
@@ -518,24 +537,38 @@
         }
     }
 
-    // 読むターン数をリセットせずに保持
-    getAdvice(currentAdviceDepth);
+    // 現在の盤面を履歴に保存
+    if (currentMatch) {
+        currentMatch.moves.push({
+            type: 'import',
+            board: [...states],
+            time: new Date()
+        });
+    }
 }
-
-        function exportBoard() {
-            let output = '';
-            for (let i = 1; i <= boardSize * boardSize; i++) {
-                if (states[i - 1] === 2) {
-                    output += ':オセロ_黒:';
-                } else if (states[i - 1] === 3) {
-                    output += ':オセロ_白:';
-                } else {
-                    output += ':large_green_square:';
-                }
-                if (i % boardSize === 0) output += '\n';
-            }
-            document.getElementById('入力').value = output.trim();
+function exportBoard() {
+    let output = '';
+    for (let i = 1; i <= boardSize * boardSize; i++) {
+        if (states[i - 1] === 2) {
+            output += ':オセロ_黒:';
+        } else if (states[i - 1] === 3) {
+            output += ':オセロ_白:';
+        } else {
+            output += ':large_green_square:';
         }
+        if (i % boardSize === 0) output += '\n';
+    }
+    document.getElementById('入力').value = output.trim();
+
+    // 現在の盤面を履歴に保存
+    if (currentMatch) {
+        currentMatch.moves.push({
+            type: 'export',
+            board: [...states],
+            time: new Date()
+        });
+    }
+}
 
         function resetBoard() {
             document.getElementById('入力').value = '';
@@ -902,6 +935,93 @@ function setAdviceDepth(depth) {
             button.classList.add('active');
         }
     });
+}
+function startNewMatch() {
+    if (currentMatch) {
+        alert("現在のマッチが終了していません。終了してください。");
+        return;
+    }
+
+    currentMatch = {
+        startTime: new Date(),
+        moves: []
+    };
+
+    alert("新しいマッチを開始しました！");
+}
+
+function recordMove(player, position) {
+    if (!currentMatch) {
+        alert("マッチが開始されていません。");
+        return;
+    }
+
+    currentMatch.moves.push({
+        player: player,
+        position: position,
+        time: new Date()
+    });
+}
+
+function endMatch() {
+    if (!currentMatch) {
+        alert("現在進行中のマッチがありません。");
+        return;
+    }
+
+    currentMatch.endTime = new Date();
+    matchHistory.push(currentMatch);
+    alert("マッチを終了しました！");
+    currentMatch = null;
+
+    console.log("マッチ履歴:", matchHistory);
+}
+function showMatchHistory() {
+    const modal = document.getElementById('match-history-modal');
+    const overlay = document.getElementById('modal-overlay');
+    const content = document.getElementById('match-history-content');
+
+    content.innerHTML = matchHistory.map((match, index) => `
+        <div>
+            <h3>マッチ ${index + 1}</h3>
+            <p>開始時間: ${match.startTime}</p>
+            <p>終了時間: ${match.endTime}</p>
+            <h4>盤面履歴:</h4>
+            ${match.moves.map(move => `
+                <div>
+                    <p>種類: ${move.type === 'export' ? '書き出し' : '読み込み'}</p>
+                    <p>時間: ${move.time}</p>
+                    <pre>${formatBoard(move.board)}</pre>
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
+
+    modal.style.display = 'block'; // モーダルを表示
+    overlay.style.display = 'block'; // 背景を暗くする
+}
+
+function formatBoard(board) {
+    let formatted = '';
+    for (let i = 0; i < board.length; i++) {
+        if (board[i] === 1) {
+            formatted += '□'; // 空のマス
+        } else if (board[i] === 2) {
+            formatted += '●'; // 黒
+        } else if (board[i] === 3) {
+            formatted += '○'; // 白
+        }
+        if ((i + 1) % boardSize === 0) formatted += '\n';
+    }
+    return formatted;
+}
+
+function closeMatchHistory() {
+    const modal = document.getElementById('match-history-modal');
+    const overlay = document.getElementById('modal-overlay');
+
+    modal.style.display = 'none'; // モーダルを非表示
+    overlay.style.display = 'none'; // 背景を元に戻す
 }
     </script>
 </body>
