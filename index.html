@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オセロ生成機 v1.1.0</title>
+    <title>オセロ生成機 v1.1.1</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         body {
@@ -224,12 +224,32 @@
         background-color: #0056b3;
         color: #fff;
     }
+    #toggle-advice-depth {
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0 5px;
+    color: #333;
+    transition: transform 0.2s ease;
+}
+
+#toggle-advice-depth:hover {
+    transform: scale(1.2); /* ボタンを少し拡大 */
+}
+#feedback-modal textarea {
+    resize: none; /* テキストエリアのサイズ変更を無効化 */
+}
+
+#feedback-modal button:hover {
+    opacity: 0.9; /* ボタンを少し暗く */
+}
     </style>
 </head>
 <body>
     <div id="sidebar">
         <div>
-            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.1.0</h1>
+            <h1 style="text-align: center; margin-top: 20px;">オセロ生成機<br>v1.1.1</h1>
             <button data-size="6" onclick="switchBoard(6)">6x6</button>
             <button data-size="8" onclick="switchBoard(8)" class="active">8x8</button>
             <button data-size="10" onclick="switchBoard(10)">10x10</button>
@@ -241,6 +261,8 @@
             <button onclick="showMatchHistory()">履歴を見る</button>
             <button onclick="showInstructionsModal()">使い方</button>
             <button onclick="showReleaseNotesModal()" style="margin-top: 10px;">リリースノート</button>
+            <button onclick="showFeedbackModal()">意見箱</button>
+            <button onclick="showAdminAuthModal()" style="margin-top: 10px;">保存された意見を見る</button>
             <button onclick="downloadOfflineVersion()" style="margin-top: 10px;">オフライン版を<br>ダウンロード</button>
         </div>
     </div>
@@ -262,34 +284,45 @@
     <button onclick="closeModal()">閉じる</button>
 </div>
 
-<div id="instructions-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000;">
-    <h2>使い方</h2>
-    <p>
-        【使い方】<br>
-        1. 左のサイドバーから盤のサイズを選択してください。<br>
-        2. 入力欄にSlackのオセロをコピーしたものを貼り付け、「読み込み」ボタンを押すと盤面が更新されます。<br>
-        3. 真ん中にあるオセロ盤をクリックすることで色が変わります。<br>
-        4. 「書き出す」ボタンで現在の盤面データを入力欄に出力できます。<br>
-        5. 「リセット」ボタンで盤面を初期状態に戻します。<br>
-        6. 「コピー」ボタンで入力欄の内容をクリップボードにコピーします。<br>
-        7. 「貼り付け」ボタンでクリップボードの内容を入力欄に貼り付けます。<br>
-        8. 「ひっくり返す」ボタンで最後に変更したマスを基点にひっくり返し処理を実行します。<br>
-        9. 「初期配置を配置」ボタンで盤に初期配置を配置します。<br>
-        10. 「オフライン版をダウンロード」ボタンでオフライン版をダウンロードできます。<br>
-        11. 「リリースノート」ボタンで最新のリリースノートを表示します。<br>
-        12. 「アドバイス」ボタンで現在の盤面に対するアドバイスを表示します。<br>
-        13. 読むターン数を選択することで、アドバイスの深さを調整できます。<br>
-        14. アドバイスは、黒と白の両方に対して最適な手を提案します。<br>
-        15. アドバイスは盤面の状態に基づいて計算され、ひっくり返せる数や次のターンの安全度を考慮します。<br>
-        16. 「マッチを終了」ボタンで現在のマッチを終了し、履歴に保存します。<br>
-        17. 「履歴を見る」ボタンで過去のマッチ履歴を表示します。<br>
-        18. 「新しいマッチを作成」ボタンで新しいマッチを開始します。<br>
-        19. マッチ履歴は、各マッチの開始時間、終了時間、盤面の状態、アドバイスの履歴を含みます。<br>
-        20. マッチ履歴は、マッチ終了後に自動的に保存されます。<br>
-        21. アドバイスは盤面が大きいと計算に時間がかかったり応答がなくなる場合があります。<br>
-        22. マッチを作成、終了はベータ版のためバグが多い可能性しかありません。<br>
-    </p>
-    <button onclick="closeInstructionsModal()">閉じる</button>
+<div id="instructions-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000; max-height: 80%; overflow-y: auto; width: 90%; max-width: 600px;">
+    <h2 style="text-align: center; margin-bottom: 20px;">使い方</h2>
+    <div style="margin-bottom: 20px;">
+        <h3>基本操作</h3>
+        <ul style="line-height: 1.6;">
+            <li>左のサイドバーから盤のサイズを選択してください。</li>
+            <li>入力欄にSlackのオセロをコピーしたものを貼り付け、「読み込み」ボタンを押すと盤面が更新されます。</li>
+            <li>真ん中にあるオセロ盤をクリックすることで色が変わります。</li>
+        </ul>
+    </div>
+    <div style="margin-bottom: 20px;">
+        <h3>ボタンの機能</h3>
+        <ul style="line-height: 1.6;">
+            <li><strong>書き出す:</strong> 現在の盤面データを入力欄に出力します。</li>
+            <li><strong>リセット:</strong> 盤面を初期状態に戻します。</li>
+            <li><strong>コピー:</strong> 入力欄の内容をクリップボードにコピーします。</li>
+            <li><strong>貼り付け:</strong> クリップボードの内容を入力欄に貼り付けます。</li>
+            <li><strong>ひっくり返す:</strong> 最後に変更したマスを基点にひっくり返し処理を実行します。</li>
+            <li><strong>初期配置を配置:</strong> 盤に初期配置を配置します。</li>
+        </ul>
+    </div>
+    <div style="margin-bottom: 20px;">
+        <h3>その他の機能</h3>
+        <ul style="line-height: 1.6;">
+            <li><strong>オフライン版をダウンロード:</strong> オフライン版をダウンロードできます。</li>
+            <li><strong>リリースノート:</strong> 最新のリリースノートを表示します。</li>
+            <li><strong>アドバイス:</strong> 現在の盤面に対するアドバイスを表示します。</li>
+            <li><strong>読むターン数:</strong> アドバイスの深さを調整できます。</li>
+        </ul>
+    </div>
+    <div style="margin-bottom: 20px;">
+        <h3>マッチ管理</h3>
+        <ul style="line-height: 1.6;">
+            <li><strong>新しいマッチを作成:</strong> 新しいマッチを開始します。</li>
+            <li><strong>マッチを終了:</strong> 現在のマッチを終了し、履歴に保存します。</li>
+            <li><strong>履歴を見る:</strong> 過去のマッチ履歴を表示します。</li>
+        </ul>
+    </div>
+    <button onclick="closeInstructionsModal()" style="display: block; margin: 0 auto; padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">閉じる</button>
 </div>
 
 <div id="release-notes-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000;">
@@ -308,8 +341,11 @@
 </div>
 <!-- 読むターン数選択 UI -->
 <div id="advice-depth-container" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background-color: #f9f9f9; padding: 10px; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);">
-    <p style="font-size: 1em; color: #333;">読むターン数を選択してください</p>
-    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <p style="font-size: 1em; color: #333; margin: 0;">読むターン数を選択してください</p>
+        <button id="toggle-advice-depth" onclick="toggleAdviceDepth()" style="background: none; border: none; font-size: 1.2em; cursor: pointer;">+</button>
+    </div>
+    <div id="advice-depth-buttons" style="display: none; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
         <button onclick="setAdviceDepth(1)" class="depth-button">1ターン</button>
         <button onclick="setAdviceDepth(2)" class="depth-button active">2ターン</button>
         <button onclick="setAdviceDepth(3)" class="depth-button">3ターン</button>
@@ -328,6 +364,24 @@
     <div id="match-history-content"></div>
     <button onclick="closeMatchHistory()">閉じる</button>
 </div>
+<!-- 意見箱モーダル -->
+<div id="feedback-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000; width: 90%; max-width: 400px;">
+    <h2 style="text-align: center;">意見箱</h2>
+    <textarea id="feedback-input" rows="5" placeholder="ここに意見を入力してください..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;"></textarea>
+    <div style="margin-top: 20px; display: flex; justify-content: space-between;">
+        <button onclick="saveFeedback()" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">保存</button>
+        <button onclick="closeFeedbackModal()" style="padding: 10px 20px; background-color: #ccc; color: black; border: none; border-radius: 5px; cursor: pointer;">閉じる</button>
+    </div>
+</div>
+<!-- 管理者認証モーダル -->
+<div id="admin-auth-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); border-radius: 5px; z-index: 1000; width: 90%; max-width: 400px;">
+    <h2 style="text-align: center;">管理者認証</h2>
+    <input id="admin-password" type="password" placeholder="パスワードを入力してください" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between;">
+        <button onclick="authenticateAdmin()" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">認証</button>
+        <button onclick="closeAdminAuthModal()" style="padding: 10px 20px; background-color: #ccc; color: black; border: none; border-radius: 5px; cursor: pointer;">閉じる</button>
+    </div>
+</div>
     <script>
         let states = [];
         let boardSize = 8;
@@ -335,6 +389,8 @@
         let currentAdviceDepth = 2; // 現在の読むターン数を保持する変数
         let matchHistory = []; // マッチの履歴を保存
         let currentMatch = null; // 現在のマッチ情報
+        // 管理者パスワード（ここで設定）
+const ADMIN_PASSWORD = "0143";
 
         function switchBoard(size) {
             boardSize = size;
@@ -1022,6 +1078,110 @@ function closeMatchHistory() {
 
     modal.style.display = 'none'; // モーダルを非表示
     overlay.style.display = 'none'; // 背景を元に戻す
+}
+function toggleAdviceDepth() {
+    const buttonsContainer = document.getElementById('advice-depth-buttons');
+    const toggleButton = document.getElementById('toggle-advice-depth');
+
+    if (buttonsContainer.style.display === 'none') {
+        buttonsContainer.style.display = 'flex';
+        toggleButton.textContent = '−'; // ボタンを「−」に変更
+    } else {
+        buttonsContainer.style.display = 'none';
+        toggleButton.textContent = '+'; // ボタンを「＋」に変更
+    }
+}
+// 意見箱モーダルを表示
+function showFeedbackModal() {
+    const modal = document.getElementById('feedback-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+// 意見箱モーダルを閉じる
+function closeFeedbackModal() {
+    const modal = document.getElementById('feedback-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'none';
+    overlay.style.display = 'none';
+}
+
+// 意見を保存
+function saveFeedback() {
+    const feedback = document.getElementById('feedback-input').value.trim();
+    if (!feedback) {
+        alert("意見を入力してください。");
+        return;
+    }
+
+    // ローカルストレージに保存
+    const feedbackList = JSON.parse(localStorage.getItem('feedbackList')) || [];
+    feedbackList.push({
+        feedback,
+        timestamp: new Date().toISOString()
+    });
+    localStorage.setItem('feedbackList', JSON.stringify(feedbackList));
+
+    alert("意見が保存されました。");
+
+    // 入力欄をクリアしてモーダルを閉じる
+    document.getElementById('feedback-input').value = '';
+    closeFeedbackModal();
+}
+function showSavedFeedback() {
+    const feedbackList = JSON.parse(localStorage.getItem('feedbackList')) || [];
+    if (feedbackList.length === 0) {
+        alert("保存された意見はありません。");
+        return;
+    }
+
+    const feedbackMessages = feedbackList.map(
+        (item, index) => `${index + 1}. ${item.feedback} (保存日時: ${item.timestamp})`
+    ).join('\n');
+
+    alert(`保存された意見:\n\n${feedbackMessages}`);
+}
+// 管理者認証モーダルを表示
+function showAdminAuthModal() {
+    const modal = document.getElementById('admin-auth-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+// 管理者認証モーダルを閉じる
+function closeAdminAuthModal() {
+    const modal = document.getElementById('admin-auth-modal');
+    const overlay = document.getElementById('modal-overlay');
+    modal.style.display = 'none';
+    overlay.style.display = 'none';
+}
+
+// 管理者認証
+function authenticateAdmin() {
+    const inputPassword = document.getElementById('admin-password').value;
+    if (inputPassword === ADMIN_PASSWORD) {
+        closeAdminAuthModal();
+        showSavedFeedback(); // 保存された意見を表示
+    } else {
+        alert("パスワードが間違っています。");
+    }
+}
+
+// 保存された意見を表示
+function showSavedFeedback() {
+    const feedbackList = JSON.parse(localStorage.getItem('feedbackList')) || [];
+    if (feedbackList.length === 0) {
+        alert("保存された意見はありません。");
+        return;
+    }
+
+    const feedbackMessages = feedbackList.map(
+        (item, index) => `${index + 1}. ${item.feedback} (保存日時: ${item.timestamp})`
+    ).join('\n');
+
+    alert(`保存された意見:\n\n${feedbackMessages}`);
 }
     </script>
 </body>
